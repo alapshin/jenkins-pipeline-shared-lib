@@ -1,0 +1,24 @@
+plugins {
+    id "java"
+    id "groovy"
+    id "com.github.ben-manes.versions" version "0.17.0"
+    id "com.mkobit.jenkins.pipelines.shared-library" version "0.4.0"
+}
+
+sourceCompatibility = 1.8
+
+repositories {
+    jcenter()
+    maven {
+        url "https://repo.jenkins-ci.org"
+    }
+}
+
+dependencies {
+    implementation "com.cloudbees:groovy-cps:1.21"
+    implementation "org.codehaus.groovy:groovy-all:2.3.11"
+    implementation "org.jenkins-ci.main:jenkins-core:2.103"
+    implementation "org.jenkins-ci.plugins.workflow:workflow-support:2.17@jar"
+
+    testImplementation "junit:junit:4.12"
+}
