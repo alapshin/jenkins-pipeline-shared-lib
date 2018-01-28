@@ -1,3 +1,5 @@
+import hudson.plugins.git.GitSCM
+
 // Checkout step with custom behavior
 //
 // This is done to make Jenkins use value of "Author" field from git commits in build changelog instead of "Committer"
@@ -10,7 +12,7 @@
 //
 // To avoid manual whitelisting of access to scm.* attributes this is implemented as custom step in shared library.
 
-def call(scm) {
+def call(GitSCM scm) {
     checkout([
             $class: 'GitSCM',
             branches: scm.branches,
