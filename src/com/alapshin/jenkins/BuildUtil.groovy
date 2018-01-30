@@ -102,9 +102,6 @@ class BuildUtil implements Serializable {
 
     @NonCPS
     static String generateSuccessMessage(RunWrapper build, String branch, String bucket) {
-        def artifacts = getArtifactsUrls(build, branch, bucket)
-                .join("\n")
-
         // By default Slack attachment's field length is limited to 2048 bytes.
         // See https://github.com/jenkinsci/slack-plugin/pull/274#issuecomment-268710977
         //
@@ -119,14 +116,21 @@ class BuildUtil implements Serializable {
                 .collect {[ "value" : "```${it.join('\n')}```" ]}
 
         def message = generateBaseMessage(build, branch)
-        message.fields += [
-                "title": "Changes"
-        ]
-        message.fields += changelog
-        message.fields += [
-                "title": "Artifacts",
-                "value": artifacts
-        ]
+        if (changelog) {
+            message.fields += [
+                    "title": "Changes"
+            ]
+            message.fields += changelog
+        }
+
+        def artifacts = getArtifactsUrls(build, branch, bucket)
+                .join("\n")
+        if (artifacts) {
+            message.fields += [
+                    "title": "Artifacts",
+                    "value": artifacts
+            ]
+        }
 
         return JsonOutput.toJson([message])
     }
