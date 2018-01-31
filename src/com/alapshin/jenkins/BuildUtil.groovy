@@ -2,12 +2,14 @@ package com.alapshin.jenkins
 
 import groovy.json.JsonOutput
 import com.cloudbees.groovy.cps.NonCPS
+import groovy.xml.MarkupBuilder
 import hudson.model.Result
 import hudson.scm.ChangeLogSet
 import org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper
 
 class BuildUtil implements Serializable {
     private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s/release/%s"
+    private static final String ARTIFACT_MESSAGE_TEMPLATE = '<h2>Remote artifacts</h2><br><a href="%s">%s</a>'
 
     @NonCPS
     static List<String> getChangeLog(RunWrapper build) {
@@ -133,6 +135,28 @@ class BuildUtil implements Serializable {
         }
 
         return JsonOutput.toJson([message])
+    }
+
+    @NonCPS
+    static String generateArtifactsHtmlMessage(RunWrapper build, String branch, String bucket) {
+        def writer = new StringWriter()
+        def builder = new MarkupBuilder(writer)
+
+        builder.p {
+            p("Remote artifacts")
+            p {
+                ul {
+                    build.rawBuild.artifacts.each { artifact ->
+                        li {
+                            a href: String.format(ARTIFACT_URL_TEMPLATE, bucket, branch, build.id, artifact.fileName),
+                                    artifact.fileName
+                        }
+                    }
+                }
+            }
+        }
+
+        return writer.toString()
     }
 }
 
