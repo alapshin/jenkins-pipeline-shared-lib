@@ -8,6 +8,15 @@ import hudson.scm.ChangeLogSet
 import org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper
 
 class BuildUtil implements Serializable {
+    // Number of entries from changelog per single attachments.
+    // Because Slack's has limit on attachments' value size we have to
+    // split changelog to multiple chunks if we want to send it all.
+    private static final int CHANGELOG_CHUNK_SIZE = 12
+    // Number of changelog chunks that will be sent with message.
+    // In some cases changelog could be very long (for example after rebase of
+    // long lived branch) and sending it all will flood the channel.
+    // To avoid this limit total number of chunks being sent to sane amount.
+    private static final int CHANGELOG_CHUNK_COUNT = 2
     private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s/release/%s"
     private static final String ARTIFACT_MESSAGE_TEMPLATE = '<h2>Remote artifacts</h2><br><a href="%s">%s</a>'
 
@@ -112,9 +121,11 @@ class BuildUtil implements Serializable {
         // message + 30 symbols for date + 50 symbols for author name + other text)
         // we could fit approximately 12 entries into single field (calculated as 2048 / 160 = 12.8)
         def changelog = getChangeLog(build)
-        // Split list to 12 sublists
-                .collate(12)
-        // For every sublist generate field entry
+                // Split changelog to chunks
+                .collate(CHANGELOG_CHUNK_SIZE)
+                // Limit total number of chunks
+                .take(CHANGELOG_CHUNK_COUNT)
+                // For every sublist generate field entry
                 .collect {[ "value" : "```${it.join('\n')}```" ]}
 
         def message = generateBaseMessage(build, branch)
