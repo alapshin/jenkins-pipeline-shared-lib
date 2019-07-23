@@ -7,12 +7,6 @@ def call(Map args) {
     String bucket = args.bucket
     RunWrapper build = args.build
 
-    if (!build.result) {
-        return BuildUtil.generateProgressMessage(build, scm.GIT_BRANCH)
-    } else if (build.result == Result.SUCCESS.toString()) {
-        return BuildUtil.generateSuccessMessage(build, scm.GIT_BRANCH, bucket)
-    } else {
-        return BuildUtil.generateFailureOrAbortedMessage(build, scm.GIT_BRANCH)
-    }
+    return BuildUtil.generateMessage(build, scm.GIT_BRANCH, bucket)
 }
 

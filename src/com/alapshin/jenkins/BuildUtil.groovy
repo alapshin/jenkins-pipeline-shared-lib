@@ -21,6 +21,11 @@ class BuildUtil implements Serializable {
     private static final String ARTIFACT_MESSAGE_TEMPLATE = '<h2>Remote artifacts</h2><br><a href="%s">%s</a>'
 
     @NonCPS
+    static boolean isArtifactsReady(RunWrapper build) {
+        return !build.rawBuild.artifacts.empty
+    }
+
+    @NonCPS
     static List<String> getChangeLog(RunWrapper build) {
         RunWrapper prevBuild = build
         List<ChangeLogSet.Entry> entries = []
@@ -47,7 +52,7 @@ class BuildUtil implements Serializable {
                 .collect { entry -> "By ${entry.author} on ${new Date(entry.timestamp)}: ${entry.msg}" }
     }
 
-    // Get artifacts file names
+    // Get artifacts urls
     @NonCPS
     static List<String> getArtifactsUrls(RunWrapper build, String branch, String bucket) {
         return build.rawBuild.artifacts.collect { artifact ->
@@ -55,21 +60,38 @@ class BuildUtil implements Serializable {
         }
     }
 
+    @NonCPS 
+    static String generateMessage(RunWrapper build, String branch, String bucket) {
+        if (!build.result) {
+            if (!isArtifactsReady(build)) {
+                return generateStartMessage(build, branch, bucket)
+            } else {
+                return generateArtifactsMessage(build, branch, bucket)
+            }
+        } else {
+            generateResultMessage(build, branch, bucket)
+        }
+    }
+
     @NonCPS
-    static Map generateBaseMessage(RunWrapper build, String branch) {
+    static Map generateBaseMessage(RunWrapper build, String branch, String bucket) {
         String color = "#000000"
         if (!build.result) {
             color = "#2196F3"
-        } else if (build.result == "SUCCESS") {
+        } else if (build.result == Result.SUCCESS.toString()) {
             color = "#4CAF50"
-        } else if (build.result == "ABORTED") {
+        } else if (build.result == Result.ABORTED.toString()) {
             color = "#9E9E9E"
-        } else if (build.result == "FAILURE") {
+        } else if (build.result == Result.FAILURE.toString()) {
             color = "#F44336"
         }
         String status;
         if (!build.result) {
-            status = "In Progress"
+            if (!isArtifactsReady(build)) {
+                status = "Started"
+            } else {
+                status = "In Progress"
+            }
         } else {
             status = build.result.toLowerCase().capitalize()
         }
@@ -83,6 +105,10 @@ class BuildUtil implements Serializable {
                 ],
                 "fields": [
                         [
+                                "title": "Build",
+                                "value": build.id
+                        ],
+                        [
                                 "title": "Status",
                                 "value": status
                         ],
@@ -95,14 +121,14 @@ class BuildUtil implements Serializable {
     }
 
     @NonCPS
-    static String generateProgressMessage(RunWrapper build, String branch) {
-        def message = generateBaseMessage(build, branch)
+    static String generateStartMessage(RunWrapper build, String branch, String bucket) {
+        def message = generateBaseMessage(build, branch, bucket)
         return JsonOutput.toJson([message])
     }
 
     @NonCPS
-    static String generateFailureOrAbortedMessage(RunWrapper build, String branch) {
-        def message = generateBaseMessage(build, branch)
+    static String generateResultMessage(RunWrapper build, String branch, String bucket) {
+        def message = generateBaseMessage(build, branch, bucket)
         message.fields += [
                 "title": "Details",
                 "value": build.absoluteUrl
@@ -112,7 +138,7 @@ class BuildUtil implements Serializable {
     }
 
     @NonCPS
-    static String generateSuccessMessage(RunWrapper build, String branch, String bucket) {
+    static String generateArtifactsMessage(RunWrapper build, String branch, String bucket) {
         // By default Slack attachment's field length is limited to 2048 bytes.
         // See https://github.com/jenkinsci/slack-plugin/pull/274#issuecomment-268710977
         //
@@ -128,7 +154,7 @@ class BuildUtil implements Serializable {
                 // For every sublist generate field entry
                 .collect {[ "value" : "```${it.join('\n')}```" ]}
 
-        def message = generateBaseMessage(build, branch)
+        def message = generateBaseMessage(build, branch, bucket)
         if (changelog) {
             message.fields += [
                     "title": "Changes"
