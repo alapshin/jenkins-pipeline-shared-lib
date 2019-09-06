@@ -17,7 +17,7 @@ class BuildUtil implements Serializable {
     // long lived branch) and sending it all will flood the channel.
     // To avoid this limit total number of chunks being sent to sane amount.
     private static final int CHANGELOG_CHUNK_COUNT = 2
-    private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s/release/%s"
+    private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s/%s"
     private static final String ARTIFACT_MESSAGE_TEMPLATE = '<h2>Remote artifacts</h2><br><a href="%s">%s</a>'
 
     @NonCPS
