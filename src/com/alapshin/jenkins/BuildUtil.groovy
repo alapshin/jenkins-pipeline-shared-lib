@@ -178,15 +178,15 @@ class BuildUtil implements Serializable {
     static String generateArtifactsHtmlMessage(RunWrapper build, String branch, String bucket) {
         def writer = new StringWriter()
         def builder = new MarkupBuilder(writer)
+        def artifactUrls = getArtifactsUrls(build, branch, bucket)
 
         builder.p {
             p("Remote artifacts")
             p {
                 ul {
-                    build.rawBuild.artifacts.each { artifact ->
+                    artifactUrls.each { url ->
                         li {
-                            a href: String.format(ARTIFACT_URL_TEMPLATE, bucket, branch, build.id, artifact.fileName),
-                                    artifact.fileName
+                            a href: url
                         }
                     }
                 }
