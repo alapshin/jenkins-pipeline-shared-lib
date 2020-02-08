@@ -13,8 +13,7 @@ import hudson.plugins.git.GitSCM
 // For details about how to customize checkout behavior see
 // https://support.cloudbees.com/hc/en-us/articles/226122247-How-to-Customize-Checkout-for-Pipeline-Multibranch-
 //
-// This is implemented as custom step in shared library to avoid whitelisting 
-// of access to scm.* attributes.
+// This is implemented as custom step in shared library to avoid whitelisting of access to scm.* attributes.
 
 def call(GitSCM scm) {
     checkout([

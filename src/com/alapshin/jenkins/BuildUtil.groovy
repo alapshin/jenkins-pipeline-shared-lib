@@ -7,6 +7,8 @@ import hudson.model.Result
 import hudson.scm.ChangeLogSet
 import org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper
 
+import java.nio.charset.StandardCharsets
+
 class BuildUtil implements Serializable {
     // Number of entries from changelog per single attachments.
     // Because Slack's has limit on attachments' value size we have to
@@ -17,7 +19,7 @@ class BuildUtil implements Serializable {
     // long lived branch) and sending it all will flood the channel.
     // To avoid this limit total number of chunks being sent to sane amount.
     private static final int CHANGELOG_CHUNK_COUNT = 2
-    private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s/%s"
+    private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s"
 
     @NonCPS
     static boolean isArtifactsReady(RunWrapper build) {
@@ -53,28 +55,30 @@ class BuildUtil implements Serializable {
 
     // Get artifacts urls
     @NonCPS
-    static List<String> getArtifactsUrls(RunWrapper build, String branch, String bucket) {
+    static List<String> getArtifactsUrls(RunWrapper build, String bucket) {
+        String fullProjectName = URLDecoder.decode(build.fullProjectName, StandardCharsets.UTF_8) .replace("#", "")
         return build.rawBuild.artifacts.collect { artifact ->
-            String.format(ARTIFACT_URL_TEMPLATE, bucket, branch, build.id, artifact.fileName)
+            String.format(ARTIFACT_URL_TEMPLATE, bucket, fullProjectName, artifact.fileName)
         }
     }
 
     @NonCPS 
-    static String generateMessage(RunWrapper build, String branch, String bucket) {
+    static String generateMessage(RunWrapper build, String bucket) {
         if (!build.result) {
             if (!isArtifactsReady(build)) {
-                return generateStartMessage(build, branch, bucket)
+                return generateStartMessage(build, bucket)
             } else {
-                return generateArtifactsMessage(build, branch, bucket)
+                return generateArtifactsMessage(build, bucket)
             }
         } else {
-            generateResultMessage(build, branch, bucket)
+            generateResultMessage(build, bucket)
         }
     }
 
     @NonCPS
-    static Map generateBaseMessage(RunWrapper build, String branch, String bucket) {
+    static Map generateBaseMessage(RunWrapper build, String bucket) {
         String color = "#000000"
+        String branch = URLDecoder.decode(build.projectName)
         if (!build.result) {
             color = "#2196F3"
         } else if (build.result == Result.SUCCESS.toString()) {
@@ -120,14 +124,14 @@ class BuildUtil implements Serializable {
     }
 
     @NonCPS
-    static String generateStartMessage(RunWrapper build, String branch, String bucket) {
-        def message = generateBaseMessage(build, branch, bucket)
+    static String generateStartMessage(RunWrapper build, String bucket) {
+        def message = generateBaseMessage(build, bucket)
         return JsonOutput.toJson([message])
     }
 
     @NonCPS
-    static String generateResultMessage(RunWrapper build, String branch, String bucket) {
-        def message = generateBaseMessage(build, branch, bucket)
+    static String generateResultMessage(RunWrapper build, String bucket) {
+        def message = generateBaseMessage(build, bucket)
         message.fields += [
                 "title": "Details",
                 "value": build.absoluteUrl
@@ -137,7 +141,7 @@ class BuildUtil implements Serializable {
     }
 
     @NonCPS
-    static String generateArtifactsMessage(RunWrapper build, String branch, String bucket) {
+    static String generateArtifactsMessage(RunWrapper build, String bucket) {
         // By default Slack attachment's field length is limited to 2048 bytes.
         // See https://github.com/jenkinsci/slack-plugin/pull/274#issuecomment-268710977
         //
@@ -153,7 +157,7 @@ class BuildUtil implements Serializable {
                 // For every sublist generate field entry
                 .collect {[ "value" : "```${it.join('\n')}```" ]}
 
-        def message = generateBaseMessage(build, branch, bucket)
+        def message = generateBaseMessage(build, bucket)
         if (changelog) {
             message.fields += [
                     "title": "Changes"
@@ -161,7 +165,7 @@ class BuildUtil implements Serializable {
             message.fields += changelog
         }
 
-        def artifacts = getArtifactsUrls(build, branch, bucket)
+        def artifacts = getArtifactsUrls(build, bucket)
                 .join("\n")
         if (artifacts) {
             message.fields += [
@@ -174,16 +178,16 @@ class BuildUtil implements Serializable {
     }
 
     @NonCPS
-    static String generateArtifactsHtmlMessage(RunWrapper build, String branch, String bucket) {
-        def writer = new StringWriter()
-        def builder = new MarkupBuilder(writer)
-        def artifactUrls = getArtifactsUrls(build, branch, bucket)
+    static String generateArtifactsHtmlMessage(RunWrapper build, String bucket) {
+        StringWriter writer = new StringWriter()
+        MarkupBuilder builder = new MarkupBuilder(writer)
+        List<String> artifactsUrls = getArtifactsUrls(build, bucket)
 
         builder.p {
             p("Remote artifacts")
             p {
                 ul {
-                    artifactUrls.each { url ->
+                    artifactsUrls.each { url ->
                         li {
                             a href: url
                         }
