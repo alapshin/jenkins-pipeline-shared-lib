@@ -10,11 +10,10 @@ import hudson.plugins.git.GitSCM
 // longer the case. For detail see  
 // https://github.com/jenkinsci/git-plugin/commit/04152e98a19da6c43658a22c3f3340a26ac2fb49
 //
-// For details about how to customize checkout behavior see
+// For details about how to customize checkoutWithExt behavior see
 // https://support.cloudbees.com/hc/en-us/articles/226122247-How-to-Customize-Checkout-for-Pipeline-Multibranch-
 //
 // This is implemented as custom step in shared library to avoid whitelisting of access to scm.* attributes.
-
 def call(GitSCM scm) {
     checkout([
             $class: 'GitSCM',
