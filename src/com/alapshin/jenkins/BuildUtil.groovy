@@ -189,7 +189,7 @@ class BuildUtil implements Serializable {
                 ul {
                     artifactsUrls.each { url ->
                         li {
-                            a href: url
+                            a href: url, url
                         }
                     }
                 }
