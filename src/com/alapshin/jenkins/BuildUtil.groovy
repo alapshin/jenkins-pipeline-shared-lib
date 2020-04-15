@@ -10,15 +10,6 @@ import org.jenkinsci.plugins.workflow.support.steps.build.RunWrapper
 import java.nio.charset.StandardCharsets
 
 class BuildUtil implements Serializable {
-    // Number of entries from changelog per single attachments.
-    // Because Slack's has limit on attachments' value size we have to
-    // split changelog to multiple chunks if we want to send it all.
-    private static final int CHANGELOG_CHUNK_SIZE = 12
-    // Number of changelog chunks that will be sent with message.
-    // In some cases changelog could be very long (for example after rebase of
-    // long lived branch) and sending it all will flood the channel.
-    // To avoid this limit total number of chunks being sent to sane amount.
-    private static final int CHANGELOG_CHUNK_COUNT = 2
     private static final String ARTIFACT_URL_TEMPLATE = "https://%s.s3.amazonaws.com/%s/%s"
 
     @NonCPS
@@ -76,19 +67,9 @@ class BuildUtil implements Serializable {
     }
 
     @NonCPS
-    static Map generateBaseMessage(RunWrapper build, String bucket) {
-        String color = "#000000"
-        String branch = URLDecoder.decode(build.projectName)
-        if (!build.result) {
-            color = "#2196F3"
-        } else if (build.result == Result.SUCCESS.toString()) {
-            color = "#4CAF50"
-        } else if (build.result == Result.ABORTED.toString()) {
-            color = "#9E9E9E"
-        } else if (build.result == Result.FAILURE.toString()) {
-            color = "#F44336"
-        }
+    static String generateBaseMessage(RunWrapper build, String bucket) {
         String status;
+        String branch = URLDecoder.decode(build.projectName)
         if (!build.result) {
             if (!isArtifactsReady(build)) {
                 status = "Started"
@@ -99,82 +80,57 @@ class BuildUtil implements Serializable {
             status = build.result.toLowerCase().capitalize()
         }
 
-        return [
-                "color": color,
-                "mrkdwn_in": [
-                        "text",
-                        "pretext",
-                        "fields"
-                ],
-                "fields": [
-                        [
-                                "title": "Build",
-                                "value": build.id
-                        ],
-                        [
-                                "title": "Status",
-                                "value": status
-                        ],
-                        [
-                                "title": "Branch",
-                                "value": branch
-                        ],
-                ]
-        ]
+        return """
+            **Build**
+            ${build.id}
+
+            **Status**
+            ${status}
+
+            **Branch**
+            ${branch}
+        """.stripIndent()
     }
 
     @NonCPS
     static String generateStartMessage(RunWrapper build, String bucket) {
-        def message = generateBaseMessage(build, bucket)
-        return JsonOutput.toJson([message])
+        return generateBaseMessage(build, bucket)
     }
 
     @NonCPS
     static String generateResultMessage(RunWrapper build, String bucket) {
-        def message = generateBaseMessage(build, bucket)
-        message.fields += [
-                "title": "Details",
-                "value": build.absoluteUrl
-        ]
-
-        return JsonOutput.toJson([message])
+        String details = """
+            **Details**
+            ${build.absoluteUrl}
+        """.stripIndent()
+        return generateBaseMessage(build, bucket) + details
     }
 
     @NonCPS
     static String generateArtifactsMessage(RunWrapper build, String bucket) {
-        // By default Slack attachment's field length is limited to 2048 bytes.
-        // See https://github.com/jenkinsci/slack-plugin/pull/274#issuecomment-268710977
-        //
-        // To avoid changelog truncation we split it into multiple fields.
-        // Assuming that each changelog entry is 160 symbols (80 symbols for commit
-        // message + 30 symbols for date + 50 symbols for author name + other text)
-        // we could fit approximately 12 entries into single field (calculated as 2048 / 160 = 12.8)
-        def changelog = getChangeLog(build)
-                // Split changelog to chunks
-                .collate(CHANGELOG_CHUNK_SIZE)
-                // Limit total number of chunks
-                .take(CHANGELOG_CHUNK_COUNT)
-                // For every sublist generate field entry
-                .collect {[ "value" : "```${it.join('\n')}```" ]}
+        String message = generateBaseMessage(build, bucket)
 
-        def message = generateBaseMessage(build, bucket)
+        String changelog = getChangeLog(build).join("\n")
         if (changelog) {
-            message.fields += [
-                    "title": "Changes"
-            ]
-            message.fields += changelog
+            // Using replaceAll instead of stripIndent because lines generated by list concatenation don't have leading
+            // indent. As a result stripIndent doesn't strip anything
+            message += """
+                **Changes**
+                ${changelog}
+            """.replaceAll("[ \\t]{2,}", "")
         }
 
-        def artifacts = getArtifactsUrls(build, bucket)
-                .join("\n")
+        String artifacts = getArtifactsUrls(build, bucket).join("\n")
         if (artifacts) {
-            message.fields += [
-                    "title": "Artifacts",
-                    "value": artifacts
-            ]
+            // Using replaceAll instead of stripIndent because lines generated by list concatenation don't have leading
+            // indent. As a result stripIndent doesn't strip anything
+            message += """
+                **Artifacts**
+                ${artifacts}
+            """.replaceAll("[ \\t]{2,}", "")
         }
 
-        return JsonOutput.toJson([message])
+        return message
     }
 
     @NonCPS
