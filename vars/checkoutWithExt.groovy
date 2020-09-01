@@ -18,7 +18,7 @@ def call(GitSCM scm) {
     checkout([
             $class: 'GitSCM',
             branches: scm.branches,
-            extensions: scm.extensions + [[$class: 'AuthorInChangelog']],
+            extensions: scm.extensions + [[$class: 'AuthorInChangelog'], [$class: 'CloneOption', noTags: false, reference: '', shallow: false]],
             userRemoteConfigs: scm.userRemoteConfigs,
             doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
     ])
